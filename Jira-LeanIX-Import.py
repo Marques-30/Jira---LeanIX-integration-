@@ -5,9 +5,9 @@ import csv
 import time
 import datetime
 
-api_token = 'KfbHuGuSZXkaOmjmjcB9qaGtymXryt8vPDjMWRSc'
-auth_url = 'https://dropbox.leanix.net/services/mtm/v1/oauth2/token' 
-request_url = 'https://dropbox.leanix.net/services/pathfinder/v1/graphql'
+api_token = ''
+auth_url = 'https://(company connect).leanix.net/services/mtm/v1/oauth2/token' 
+request_url = 'https://(company connect).leanix.net/services/pathfinder/v1/graphql'
 
 #API handler
 response = requests.post(auth_url, auth=('apitoken', api_token),
