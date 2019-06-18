@@ -1,9 +1,4 @@
-# Jira---LeanIX-integration-
-
-Jira <> LeanIX Integration
-Owner: @Marques B 
-Last Updated: 6/7/2019
-
+# Jira <> LeanIX Integration
 
 # Background
 
