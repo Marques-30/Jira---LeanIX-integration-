@@ -1,28 +1,28 @@
 # Jira <> LeanIX Integration
 
-# Background
+## Background
 
 To implement the Jira to LeanIX integration a python script will have to be used that takes an email sent out from Jira once the ticket is completed with specific data. It will be used to create applications within LeanIX following the +Jira Vendor Software Request MVP requirements. The script is using an API token from LeanIX to
 
 
-# Process
+## Process
 
 Once a Vendor Service request ticket is closed it will push a type of data link through the methods listed below that will be filtered and organized through the python script. From there, the script contacts LeanIX through the API token and creates an application or business category based on the questions answered in the Vendor Service Request Form.
 
-## Email
+### Email
 | Pros                          | Cons                                                      |
 | ----------------------------- | --------------------------------------------------------- |
 | Automated push from Jira      | Need to have security allow python script to access inbox |
 | Emails can be used to as logs |                                                           |
 
-## CSV Export
+### CSV Export
 | Pros                                                                                                                                                                                                      | Cons                                    |
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Easier to configure and setup                                                                                                                                                                             | Manual pull Jira (could be done at EOD) |
 | CSV can be used as daily log                                                                                                                                                                              |                                         |
 | Can run script on current google sheet<br>to make up to date https://docs.google.com/spreadsheets/d/1Jg46PkSeH6rhsWQU3Px7Cqo3SGkDQwln-H1yuHgWKxc/edit?ouid=117110541779363535038&usp=sheets_home&ths=true |                                         |
 
-# Implementation
+## Implementation
 
 Currently the python script is taking a csv export from a Jira filter and parses the data, from there it connects with LeanIX. However, before uploading anything into it LeanIX it pulls data of existing Applications, User Groups, Providers, tags, and Business Capability from LeanIX and compares the information from Jira towards LeanIX. For Applications, Business Capability, User Groups and Providers in LeanIX it checks to see if it already exists based off the information from Jira. If it already exist it skips and moves on in the script, if it doesn’t exist yet it creates the new FactSheet. Whether the FactSheet already exists in LeanIX or not, based on the information in Jira it creates relations between all of these mentioned fields in LeanIX.
 
