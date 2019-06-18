@@ -20,7 +20,6 @@ Once a Vendor Service request ticket is closed it will push a type of data link 
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | Easier to configure and setup                                                                                                                                                                             | Manual pull Jira (could be done at EOD) |
 | CSV can be used as daily log                                                                                                                                                                              |                                         |
-| Can run script on current google sheet<br>to make up to date https://docs.google.com/spreadsheets/d/1Jg46PkSeH6rhsWQU3Px7Cqo3SGkDQwln-H1yuHgWKxc/edit?ouid=117110541779363535038&usp=sheets_home&ths=true |                                         |
 
 ## Implementation
 
