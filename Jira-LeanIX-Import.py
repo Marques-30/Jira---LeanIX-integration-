@@ -4,10 +4,17 @@ import pandas as pd
 import csv
 import time
 import datetime
+from jira import JIRA
 
+#Jira connection
+passwrd = input("Please enter in Jira password: ")
+print ("Start : " + time.ctime())
+jira = jira = JIRA(basic_auth=("UserEmail", passwrd), options={'server': '#Link to Jira'})
+
+#LeanIX connection
 api_token = ''
-auth_url = 'https://(company connect).leanix.net/services/mtm/v1/oauth2/token' 
-request_url = 'https://(company connect).leanix.net/services/pathfinder/v1/graphql'
+auth_url = 'https://(companyname).leanix.net/services/mtm/v1/oauth2/token' 
+request_url = 'https://(companyname).leanix.net/services/pathfinder/v1/graphql'
 
 #API handler
 response = requests.post(auth_url, auth=('apitoken', api_token),
@@ -70,7 +77,7 @@ def createProvider(provider_name):
   response = call(query)
   print (response)
 
-def relationsProvider(id2, provider_name):
+def relationsProvider(provider_name, name):
   query = """  
     {
       allFactSheets(filter: {displayName: "%s"}) {
@@ -89,23 +96,25 @@ def relationsProvider(id2, provider_name):
   id3 = bcmd.split("'")[17]
   query = """
     mutation {
-      updateFactSheet(id: "%s", patches: [{op: add, path: "/relApplicationToProvider/new_1", value: "{\\"factSheetId\\":\\"%s\\"}"}]) {
+      result: updateFactSheet(id: "%s", patches: [{op: replace, path: "/tags", value: "[{\\"tagName\\":\\"%s\\"}]"}], validateOnly: false) {
         factSheet {
-          id
-          displayName
           ... on Application {
-            relApplicationToProcess {
-              edges {
-                node {
-                  id
-                }
+            rev
+            displayName
+            tags {
+              id
+              name
+              color
+              description
+              tagGroup {
+                shortName
               }
             }
           }
         }
       }
     }
-  """ % (id2, id3)
+  """ % (id3, name)
   response = call(query)
   print ("Relations have been created between: Provider towards Application")
   print (response)
@@ -258,8 +267,9 @@ def addUser(id2, system_owner, business_owner):
   print (response)
 
 #Adding tags
-def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
+def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth, tag_sec):
 #license Type
+#query not showing ids but no errors
   query = """
     {
       allTags(filter: {tagGroupName: "License Type", nameSubstring: "%s"}) {
@@ -279,31 +289,7 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
   response = call(query)
   print (response)
   tcmd = str(response)
-  tagId = tcmd.split("'")[25]
-  query = """
-    mutation {
-      result: updateFactSheet(id: "%s", patches: [{op: add, path:"/tags", value:"[{\\"tagId\\":\\"%s\\"}]"}], validateOnly: false) {
-        factSheet {
-          ... on Application {
-            rev
-            displayName
-            tags {
-              id
-              name
-              color
-              description
-              tagGroup {
-                shortName
-              }
-            }
-          }
-        }
-      }
-    }
-  """ % (id2, tagId)
-  response = call(query)
-  print ("License Type tag has been created")
-  print (response)
+  tagId7 = tcmd.split("'")[25]
 #Data Classifications tag
   query = """
     {
@@ -324,31 +310,7 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
   response = call(query)
   print (response)
   tcmd = str(response)
-  tagId = tcmd.split("'")[25]
-  query = """
-    mutation {
-      result: updateFactSheet(id: "%s", patches: [{op: add, path:"/tags", value:"[{\\"tagId\\":\\"%s\\"}]"}], validateOnly: false) {
-        factSheet {
-          ... on Application {
-            rev
-            displayName
-            tags {
-              id
-              name
-              color
-              description
-              tagGroup {
-                shortName
-              }
-            }
-          }
-        }
-      }
-    }
-  """ % (id2, tagId)
-  response = call(query)
-  print ("Data Classification tag has been created")
-  print (response)
+  tagId6 = tcmd.split("'")[25]
 #Hosting tag
   query = """
     {
@@ -369,31 +331,7 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
   response = call(query)
   print (response)
   tcmd = str(response)
-  tagId = tcmd.split("'")[25]
-  query = """
-    mutation {
-      result: updateFactSheet(id: "%s", patches: [{op: add, path:"/tags", value:"[{\\"tagId\\":\\"%s\\"}]"}], validateOnly: false) {
-        factSheet {
-          ... on Application {
-            rev
-            displayName
-            tags {
-              id
-              name
-              color
-              description
-              tagGroup {
-                shortName
-              }
-            }
-          }
-        }
-      }
-    }
-  """ % (id2, tagId)
-  response = call(query)
-  print ("Hosting tag has been created")
-  print (response)
+  tagId5 = tcmd.split("'")[25]
 #Criticality tag
   query = """
     {
@@ -414,31 +352,7 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
   response = call(query)
   print (response)
   tcmd = str(response)
-  tagId = tcmd.split("'")[25]
-  query = """
-    mutation {
-      result: updateFactSheet(id: "%s", patches: [{op: add, path:"/tags", value:"[{\\"tagId\\":\\"%s\\"}]"}], validateOnly: false) {
-        factSheet {
-          ... on Application {
-            rev
-            displayName
-            tags {
-              id
-              name
-              color
-              description
-              tagGroup {
-                shortName
-              }
-            }
-          }
-        }
-      }
-    }
-  """ % (id2, tagId)
-  response = call(query)
-  print ("Criticality tag has been created")
-  print (response)
+  tagId4 = tcmd.split("'")[25]
 #Authentication tag
   query = """
     {
@@ -459,30 +373,40 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth):
   response = call(query)
   print (response)
   tcmd = str(response)
-  tagId = tcmd.split("'")[25]
+  tagId3 = tcmd.split("'")[25]
+#Security Review tag
   query = """
-    mutation {
-      result: updateFactSheet(id: "%s", patches: [{op: add, path:"/tags", value:"[{\\"tagId\\":\\"%s\\"}]"}], validateOnly: false) {
-        factSheet {
-          ... on Application {
-            rev
-            displayName
-            tags {
-              id
+    {
+      allTags(filter: {tagGroupName: "Security Review", nameSubstring: "%s"}) {
+        edges {
+          node {
+            tagGroup {
               name
-              color
-              description
-              tagGroup {
-                shortName
-              }
+              id
             }
+            name
+            id
           }
         }
       }
     }
-  """ % (id2, tagId)
+  """ % (tag_sec)
   response = call(query)
-  print ("Authentication tag has been created")
+  print (response)
+  tcmd2 = str(response)
+  tagId2 = tcmd2.split("'")[25]
+  query = """
+    mutation {
+      updateFactSheet(id: "%s", 
+        patches: [{op: replace, path: "/tags", value: "[{\\\"tagId\\\":\\\"%s\\\"},{\\\"tagId\\\":\\\"%s\\\"},{\\\"tagId\\\":\\\"%s\\\"}, {\\\"tagId\\\":\\\"%s\\\"}, {\\\"tagId\\\":\\\"%s\\\"}, {\\\"tagId\\\":\\\"%s\\\"}]"}]) {
+          factSheet {
+          id
+        } 
+      }
+    }
+  """ % (id2, tagId2, tagId3, tagId4, tagId5, tagId6, tagId7)
+  response = call(query)
+  print ("Security Review tag has been created")
   print (response)  
 
 #Lifecycle start date
@@ -501,16 +425,27 @@ def lifeCycle(id2, start_date):
   print ("Start Date for lifeCycle has been add")
   print (response)
 
-df = pd.read_csv('jira_export.csv',
-                           header=0, encoding='ascii', engine='python')
-print(df.columns.tolist())
-print (df.head())
 
-print ("Start : " + time.ctime())
-for index, row in df.iterrows():
+for issue in jira.search_issues('filter=12002', maxResults=50):
+  print('Key: {}'.format(issue.key))
+  print('Summary: {}'.format(issue.fields.summary))
+  print('Software Category: {}'.format(str(issue.fields.customfield_11119.value)))
+  print('Software Type: {}'.format(str(issue.fields.customfield_11123.value)))
+  print('Software Vendor: {}'.format(str(issue.fields.customfield_11114)))
+  print('Business Owner: {},'.format(str(issue.fields.customfield_11131.emailAddress)))
+  print('System Owner: {}'.format(str(issue.fields.customfield_11132.emailAddress)))
+  print('Authentication: {}'.format(str(issue.fields.customfield_11136.value)))
+  print('Criticality: {}'.format(str(issue.fields.customfield_11128.value)))
+  print('Data Classification: {}'.format(str(issue.fields.customfield_11133.value)))
+  print('Data Types: {}'.format(str(issue.fields.customfield_11134)))
+  print('License Type: {}'.format(str(issue.fields.customfield_11124.value)))
+  print('Vendor Contact: {}'.format(str(issue.fields.customfield_11125)))
+  print('Security Review: {}'.format(str(issue.fields.customfield_11139.value)))
+  print('Projected Usage: {}'.format(str(issue.fields.customfield_11120)))
+  print('Resolved: {}'.format(str(issue.fields.resolutiondate)))
   try:
     try:
-      createApplication(name = row['Custom field (Product Name)'])
+      createApplication(name = issue.fields.summary)
       print()
       query = """
         {
@@ -524,39 +459,42 @@ for index, row in df.iterrows():
             }
           }
         }
-      """ % (row['Custom field (Product Name)'])
+      """ % (issue.fields.summary)
       print ("List of newest created Application in LeanIX :")
       response = call(query)
       print (response['data'])
       cmd = str(response)
     except IndexError:
       break
-    if cmd.split("'")[13] == row['Custom field (Product Name)']:
+    if cmd.split("'")[13] == issue.fields.summary:
       print ("split is working")
       id2 = cmd.split("'")[17]
-    else:
-      print ("sprint is not matching correctly, Application already exists")
-      break
-    createBusiness(business_name = row['Custom field (Software Category)'])
-    print()
-    relationsBusiness(id2, business_name = row['Custom field (Software Category)'])
-    print()
-    createProvider(provider_name = row['Custom field (Software Vendor)'])
-    print()
-    #######################################
-    #userGroup(group = row['Custom field (Projected Usage)']) 
-    #Projected Usage is repeated to many times in Excel,script only pulls the first mentioned column
-    #print()
-    #######################################
-    relationsUserGroup(id2, group = row['Custom field (Projected Usage)'])
-    print ()
-    addUser(id2, system_owner = row['Custom field (System Owner)'], business_owner= row['Custom field (Business Owner)'] )
-    print ()
-    createTag(id2, tag_license = row['Custom field (License Type)'], tag_dc = row["Custom field (Data Classification)"], tag_software = row['Custom field (Software Type)'], tag_crit = row ['Custom field (Criticality)'], tag_auth = row['Custom field (Authentication)'])
-    #Overwrites previous tag
-    print ()
-    lifeCycle(id2, start_date = row['Resolved'])
-    print ()
+      print (id2)
+      createBusiness(business_name = str(issue.fields.customfield_11119.value))
+      print()
+      relationsBusiness(id2, business_name = str(issue.fields.customfield_11119.value))
+      print()
+      createProvider(provider_name = str(issue.fields.customfield_11114))
+      print()
+      #relationsProvider(provider_name = str(issue.fields.customfield_11114), name = issue.fields.summary)
+      #cannot make relatioin between application and provider https://dev.leanix.net/docs/data-model 
+      print()
+      ug = 1
+      while ug < 50:
+        try:
+          userGroup(group = (str(issue.fields.customfield_11120).split("'")[ug])) 
+          print()
+          relationsUserGroup(id2, (str(issue.fields.customfield_11120).split("'")[ug]))
+          ug += 4
+        except IndexError:
+          break
+      print ()
+      addUser(id2, system_owner = str(issue.fields.customfield_11132.emailAddress), business_owner= str(issue.fields.customfield_11131.emailAddress))
+      print ()
+      createTag(id2, tag_license = str(issue.fields.customfield_11124.value), tag_dc = str(issue.fields.customfield_11133.value), tag_software = str(issue.fields.customfield_11123.value), tag_crit = str(issue.fields.customfield_11128.value), tag_auth = str(issue.fields.customfield_11136.value), tag_sec = str(issue.fields.customfield_11139.value))
+      print ()
+      lifeCycle(id2, start_date = str(issue.fields.resolutiondate))
+      print ()
   except KeyboardInterrupt:
     print("Field is empty, end of program.")
     break
