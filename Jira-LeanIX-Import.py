@@ -5,24 +5,8 @@ import csv
 import time
 import datetime
 from jira import JIRA
-
-#Jira connection
-passwrd = input("Please enter in Jira password: ")
-print ("Start : " + time.ctime())
-jira = jira = JIRA(basic_auth=("UserEmail", passwrd), options={'server': '#Link to Jira'})
-
-#LeanIX connection
-api_token = ''
-auth_url = 'https://(companyname).leanix.net/services/mtm/v1/oauth2/token' 
-request_url = 'https://(companyname).leanix.net/services/pathfinder/v1/graphql'
-
-#API handler
-response = requests.post(auth_url, auth=('apitoken', api_token),
-                         data={'grant_type': 'client_credentials'})
-response.raise_for_status() 
-access_token = response.json()['access_token']
-auth_header = 'Bearer ' + access_token
-header = {'Authorization': auth_header}
+import os, sys
+import smtplib, ssl
 
 #Implement GraphQL queries
 def call(query):
@@ -426,76 +410,131 @@ def lifeCycle(id2, start_date):
   print (response)
 
 
-for issue in jira.search_issues('filter=12002', maxResults=50):
-  print('Key: {}'.format(issue.key))
-  print('Summary: {}'.format(issue.fields.summary))
-  print('Software Category: {}'.format(str(issue.fields.customfield_11119.value)))
-  print('Software Type: {}'.format(str(issue.fields.customfield_11123.value)))
-  print('Software Vendor: {}'.format(str(issue.fields.customfield_11114)))
-  print('Business Owner: {},'.format(str(issue.fields.customfield_11131.emailAddress)))
-  print('System Owner: {}'.format(str(issue.fields.customfield_11132.emailAddress)))
-  print('Authentication: {}'.format(str(issue.fields.customfield_11136.value)))
-  print('Criticality: {}'.format(str(issue.fields.customfield_11128.value)))
-  print('Data Classification: {}'.format(str(issue.fields.customfield_11133.value)))
-  print('Data Types: {}'.format(str(issue.fields.customfield_11134)))
-  print('License Type: {}'.format(str(issue.fields.customfield_11124.value)))
-  print('Vendor Contact: {}'.format(str(issue.fields.customfield_11125)))
-  print('Security Review: {}'.format(str(issue.fields.customfield_11139.value)))
-  print('Projected Usage: {}'.format(str(issue.fields.customfield_11120)))
-  print('Resolved: {}'.format(str(issue.fields.resolutiondate)))
-  try:
+def emailSend(master_time, e):
+  port = 465  # For starttls
+  smtp_server = "smtp.gmail.com"
+  receiver_email = useremail
+  password = ""#Email Password (must be app password
+  sender_email = ""#Email it is sending from
+  Text = """The Python Script For Jira LeanIX has been broken from over use please restart.\n
+  Traceback Error: """ + str(traceback.print_exc()) + " " + str(e) + """\n  Ran a number of: """ + str(master_time)
+  Subject = "Jira LeanIX Script failed"
+  message = 'Subject: {}\n\n{}'.format(Subject, Text)
+  context = ssl.create_default_context()
+  with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+      server.login(sender_email, password)
+      server.sendmail(sender_email, receiver_email, message)
+
+password = input("Please enter your Jia Password: ")
+master_time = 0
+while master_time <= 135:
+  print ("Start : " + time.ctime())
+  useremail = ''#Jira Username
+  jira = jira = JIRA(auth=(useremail, password), options={'server': 'Jira URL'})
+  api_token = ''
+  auth_url = 'https://{Company Name}.leanix.net/services/mtm/v1/oauth2/token' 
+  request_url = 'https://{Company Name}.leanix.net/services/pathfinder/v1/graphql'
+
+  #API handler
+  response = requests.post(auth_url, auth=('apitoken', api_token),
+                           data={'grant_type': 'client_credentials'})
+  response.raise_for_status() 
+  access_token = response.json()['access_token']
+  auth_header = 'Bearer ' + access_token
+  header = {'Authorization': auth_header}
+  for issue in jira.search_issues('filter=12002', maxResults=50):
+    print('Key: {}'.format(issue.key))
+    print('Summary: {}'.format(issue.fields.summary))
+    print('Software Category: {}'.format(str(issue.fields.customfield_11119.value)))
+    print('Software Type: {}'.format(str(issue.fields.customfield_11123.value)))
+    print('Software Vendor: {}'.format(str(issue.fields.customfield_11114)))
+    print('Business Owner: {},'.format(str(issue.fields.customfield_11131.emailAddress)))
+    print('System Owner: {}'.format(str(issue.fields.customfield_11132.emailAddress)))
+    print('Authentication: {}'.format(str(issue.fields.customfield_11136.value)))
+    print('Criticality: {}'.format(str(issue.fields.customfield_11128.value)))
+    print('Data Classification: {}'.format(str(issue.fields.customfield_11133.value)))
+    print('Data Types: {}'.format(str(issue.fields.customfield_11134)))
+    print('License Type: {}'.format(str(issue.fields.customfield_11124.value)))
+    print('Vendor Contact: {}'.format(str(issue.fields.customfield_11125)))
+    print('Security Review: {}'.format(str(issue.fields.customfield_11139.value)))
+    print('Projected Usage: {}'.format(str(issue.fields.customfield_11120)))
+    print('Resolved: {}'.format(str(issue.fields.resolutiondate)))
     try:
-      createApplication(name = issue.fields.summary)
-      print()
-      query = """
-        {
-          allFactSheets(filter: {displayName: "%s"}) {
-            totalCount
-            edges {
-              node {
-                displayName
-                id
+      try:
+        createApplication(name = issue.fields.summary)
+        query = """
+          {
+            allFactSheets(filter: {displayName: "%s"}) {
+              totalCount
+              edges {
+                node {
+                  displayName
+                  id
+                }
               }
             }
           }
-        }
-      """ % (issue.fields.summary)
-      print ("List of newest created Application in LeanIX :")
-      response = call(query)
-      print (response['data'])
-      cmd = str(response)
-    except IndexError:
-      break
-    if cmd.split("'")[13] == issue.fields.summary:
-      print ("split is working")
-      id2 = cmd.split("'")[17]
-      print (id2)
-      createBusiness(business_name = str(issue.fields.customfield_11119.value))
-      print()
-      relationsBusiness(id2, business_name = str(issue.fields.customfield_11119.value))
-      print()
-      createProvider(provider_name = str(issue.fields.customfield_11114))
-      print()
-      #relationsProvider(provider_name = str(issue.fields.customfield_11114), name = issue.fields.summary)
-      #cannot make relatioin between application and provider https://dev.leanix.net/docs/data-model 
-      print()
-      ug = 1
-      while ug < 50:
-        try:
-          userGroup(group = (str(issue.fields.customfield_11120).split("'")[ug])) 
-          print()
-          relationsUserGroup(id2, (str(issue.fields.customfield_11120).split("'")[ug]))
-          ug += 4
-        except IndexError:
-          break
-      print ()
-      addUser(id2, system_owner = str(issue.fields.customfield_11132.emailAddress), business_owner= str(issue.fields.customfield_11131.emailAddress))
-      print ()
-      createTag(id2, tag_license = str(issue.fields.customfield_11124.value), tag_dc = str(issue.fields.customfield_11133.value), tag_software = str(issue.fields.customfield_11123.value), tag_crit = str(issue.fields.customfield_11128.value), tag_auth = str(issue.fields.customfield_11136.value), tag_sec = str(issue.fields.customfield_11139.value))
-      print ()
-      lifeCycle(id2, start_date = str(issue.fields.resolutiondate))
-      print ()
-  except KeyboardInterrupt:
-    print("Field is empty, end of program.")
-    break
-print ("End : " + time.ctime())
+        """ % (issue.fields.summary)
+        print ("Application in LeanIX has been created:")
+        response = call(query)
+        print (response['data'])
+        cmd = str(response)
+      except:
+        emailSend(master_time, e)
+        sys.exit()
+      if cmd.split("'")[13] == issue.fields.summary:
+        print ("split is working")
+        id2 = cmd.split("'")[17]
+        print (id2)
+        createBusiness(business_name = str(issue.fields.customfield_11119.value))
+        print()
+        relationsBusiness(id2, business_name = str(issue.fields.customfield_11119.value))
+        print()
+        createProvider(provider_name = str(issue.fields.customfield_11114))
+        print()
+        #relationsProvider(provider_name = str(issue.fields.customfield_11114), name = issue.fields.summary)
+        #cannot make relatioin between application and provider https://dev.leanix.net/docs/data-model
+        print()
+          while ug < 120:
+            try:
+              userGroup(group.split(", ")[ug]) 
+              print()
+              relationsUserGroup(id2, group.split(", ")[ug])
+              ug += 1
+            except IndexError as e:
+              break
+        else:
+          ug = 1
+          while ug < 120:
+            try:
+              userGroup(group = (str(issue.fields.customfield_11120).split("'")[ug])) 
+              print()
+              relationsUserGroup(id2, (str(issue.fields.customfield_11120).split("'")[ug]))
+              ug += 4
+            except IndexError as e:
+              break
+        print ()
+        addUser(id2, system_owner = str(issue.fields.customfield_11132.emailAddress), business_owner= str(issue.fields.customfield_11131.emailAddress))
+        print ()
+        createTag(id2, tag_license = str(issue.fields.customfield_11124.value), tag_dc = str(issue.fields.customfield_11133.value), tag_software = str(issue.fields.customfield_11123.value), tag_crit = str(issue.fields.customfield_11128.value), tag_auth = str(issue.fields.customfield_11136.value), tag_sec = str(issue.fields.customfield_11139.value))
+        print ()
+        lifeCycle(id2, start_date = str(issue.fields.resolutiondate))
+        print ()
+    except KeyboardInterrupt as e:
+      emailSend(master_time, e)
+      sys.exit()
+    except requests.exceptions.ConnectionError as e:
+      emailSend(master_time, e)
+      sys.exit()
+    except:
+      e = "Application crashed"
+      emailSend(master_time, e)
+      sys.exit()
+  try:
+    time.sleep(5)#(86400) = One full day
+    master_time += 1
+  except KeyboardInterrupt as e:
+    emailSend(master_time, e)
+    sys.exit()
+emailSend(master_time, e)
+print("Python script needs to be restarted, email with failue sent")
