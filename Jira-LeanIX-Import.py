@@ -1,12 +1,11 @@
 import json 
 import requests 
 import pandas as pd
-import csv
 import time
-import datetime
 from jira import JIRA
 import os, sys
 import smtplib, ssl
+import traceback
 
 #Implement GraphQL queries
 def call(query):
@@ -16,7 +15,7 @@ def call(query):
   response.raise_for_status()
   return response.json()
 
-# Create Application
+#Create Application
 def createApplication(name):
   query = """
     mutation {
@@ -32,7 +31,7 @@ def createApplication(name):
   print (response)
 
 #Create Business Capability
-def createBusiness(business_name):
+def createBusiness2(business_other):
   query = """
     mutation {
       createFactSheet(input: {name: "%s", type: BusinessCapability}) {
@@ -41,8 +40,34 @@ def createBusiness(business_name):
         }
       }
   }
-  """ % (business_name)
-  print ("Create Business Capability " + business_name)
+  """ % (business_other)
+  print ("Create Business Capability " + business_other)
+  response = call(query)
+  print (response)
+
+def createBusiness(business_parent, business_child):
+  query = """
+    mutation {
+      createFactSheet(input: {name: "%s", type: BusinessCapability}) {
+        factSheet {
+          id
+        }
+      }
+  }
+  """ % (business_child)
+  print ("Create Business Capability " + business_child)
+  response = call(query)
+  print (response)
+  query = """
+    mutation {
+      createFactSheet(input: {name: "%s", type: BusinessCapability}) {
+        factSheet {
+          id
+        }
+      }
+  }
+  """ % (business_parent)
+  print ("Create Business Capability " + business_parent)
   response = call(query)
   print (response)
 
@@ -103,7 +128,7 @@ def relationsProvider(provider_name, name):
   print ("Relations have been created between: Provider towards Application")
   print (response)
 
-def relationsBusiness(id2, business_name):
+def relationsBusiness2(id2, business_other):
   query = """  
     {
       allFactSheets(filter: {displayName: "%s"}) {
@@ -115,11 +140,37 @@ def relationsBusiness(id2, business_name):
           }
         }
       }
-    }""" % (business_name)
+    }""" % (business_other)
   response = call(query)
   print (response)
   bcmd = str(response)
   id3 = bcmd.split("'")[17]
+  query = """
+    mutation {
+      result: updateFactSheet(id: "%s", patches: [{op: replace, path: "/tags", value: "[{\\"tagName\\":\\"%s\\"}]"}], validateOnly: false) {
+        factSheet {
+          ... on Application {
+            rev
+            displayName
+            tags {
+              id
+              name
+              color
+              description
+              tagGroup {
+                shortName
+              }
+            }
+          }
+        }
+      }
+    }
+  """ % (id3, name)
+  response = call(query)
+  print ("Relations have been created between: Provider towards Application")
+  print (response)
+
+def relationsBusiness(id2, mercy):
   query = """
     mutation {
       updateFactSheet(id: "%s", patches: [{op: add, path: "/relApplicationToBusinessCapability/new_1", value: "{\\"factSheetId\\":\\"%s\\"}"}]) {
@@ -138,8 +189,67 @@ def relationsBusiness(id2, business_name):
         }
       }
     }
-  """ % (id2, id3)
+  """ % (id2, mercy)
+  print(query)
   print ("Relations have been created between: towards Application")
+  response = call(query)
+  print (response)
+
+def childParent(business_parent, business_child):
+  query = """
+          {
+            allFactSheets(filter: {displayName: "%s"}) {
+              totalCount
+              edges {
+                node {
+                  displayName
+                  id
+                }
+                       }
+            }
+          }
+        """ % (business_parent)
+  response = call(query)
+  print (response)
+  parent_code = str(response)
+  parent = parent_code.split("'")[17]
+  query = """
+          {
+            allFactSheets(filter: {displayName: "%s"}) {
+              totalCount
+              edges {
+                node {
+                  displayName
+                  id
+                }
+                       }
+            }
+          }
+        """ % (business_child)  
+  response = call(query)
+  print (response)
+  child_code = str(response)
+  child = child_code.split("'")[17]
+  query = """
+    mutation {
+        updateFactSheet(id: "%s", patches: [{op: add, path: "/relToChild/new_1", value: "{\\"factSheetId\\":\\"%s\\"}"}]) {
+          factSheet {
+            id
+            displayName
+            ... on Application {
+              relApplicationToProcess {
+                edges {
+                  node {
+                    id
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+  """ % (parent, child)
+  print ("Parent Child Relations have been created between")
   response = call(query)
   print (response)
 
@@ -256,7 +366,7 @@ def createTag(id2, tag_license, tag_dc, tag_software, tag_crit, tag_auth, tag_se
 #query not showing ids but no errors
   query = """
     {
-      allTags(filter: {tagGroupName: "License Type", nameSubstring: "%s"}) {
+      allTags(filter: {tagGroupName: "License", nameSubstring: "%s"}) {
         edges {
           node {
             tagGroup {
@@ -409,60 +519,35 @@ def lifeCycle(id2, start_date):
   print ("Start Date for lifeCycle has been add")
   print (response)
 
+def duplicateTicket(summary, new_issue):
+  for issue in jira.search_issues("""summary ~ "%s" and issuetype = "New Feature" ORDER BY created ASC""" % (summary), maxResults=50):
+    parent_issue = issue.key
+    jira.create_issue_link(type="Duplicate", inwardIssue=new_issue, outwardIssue=parent_issue)
 
-def emailSend(master_time, e):
-  port = 465  # For starttls
+def emailSend(Key, useremail, master_time, lines):
+  port = 587  # For starttls
   smtp_server = "smtp.gmail.com"
-  receiver_email = useremail
-  password = ""#Email Password (must be app password
-  sender_email = ""#Email it is sending from
-  Text = """The Python Script For Jira LeanIX has been broken from over use please restart.\n
-  Traceback Error: """ + str(traceback.print_exc()) + " " + str(e) + """\n  Ran a number of: """ + str(master_time)
+  #cc = "ea@dropbox.com"
+  bcc = "mbutilla@dropbox.com"
+  password = str(lines).split("'")[1]
+  sender_email = useremail
+  Text = """The Python Script For Jira LeanIX has been broken from either over use or Missing information within this a jira ticket please restart.\n   Ran a number of: """ + str(master_time) + """\n   Time and Date of Program Failure: """ + time.ctime() + """\n   Jira ticket failed on: """ + str(Key)
   Subject = "Jira LeanIX Script failed"
   message = 'Subject: {}\n\n{}'.format(Subject, Text)
   context = ssl.create_default_context()
-  with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+  with smtplib.SMTP(smtp_server, port) as server:
+      server.ehlo()  # Can be omitted
+      server.starttls(context=context)
+      server.ehlo()  # Can be omitted
       server.login(sender_email, password)
-      server.sendmail(sender_email, receiver_email, message)
+      server.sendmail(sender_email, bcc, message)
+      #server.sendmail(sender_email, cc, message)
+  print("Python script needs to be restarted, email with failue sent")
 
-password = input("Please enter your Jia Password: ")
-master_time = 0
-while master_time <= 135:
-  print ("Start : " + time.ctime())
-  useremail = ''#Jira Username
-  jira = jira = JIRA(auth=(useremail, password), options={'server': 'Jira URL'})
-  api_token = ''
-  auth_url = 'https://{Company Name}.leanix.net/services/mtm/v1/oauth2/token' 
-  request_url = 'https://{Company Name}.leanix.net/services/pathfinder/v1/graphql'
-
-  #API handler
-  response = requests.post(auth_url, auth=('apitoken', api_token),
-                           data={'grant_type': 'client_credentials'})
-  response.raise_for_status() 
-  access_token = response.json()['access_token']
-  auth_header = 'Bearer ' + access_token
-  header = {'Authorization': auth_header}
-  for issue in jira.search_issues('filter=12002', maxResults=50):
-    print('Key: {}'.format(issue.key))
-    print('Summary: {}'.format(issue.fields.summary))
-    print('Software Category: {}'.format(str(issue.fields.customfield_11119.value)))
-    print('Software Type: {}'.format(str(issue.fields.customfield_11123.value)))
-    print('Software Vendor: {}'.format(str(issue.fields.customfield_11114)))
-    print('Business Owner: {},'.format(str(issue.fields.customfield_11131.emailAddress)))
-    print('System Owner: {}'.format(str(issue.fields.customfield_11132.emailAddress)))
-    print('Authentication: {}'.format(str(issue.fields.customfield_11136.value)))
-    print('Criticality: {}'.format(str(issue.fields.customfield_11128.value)))
-    print('Data Classification: {}'.format(str(issue.fields.customfield_11133.value)))
-    print('Data Types: {}'.format(str(issue.fields.customfield_11134)))
-    print('License Type: {}'.format(str(issue.fields.customfield_11124.value)))
-    print('Vendor Contact: {}'.format(str(issue.fields.customfield_11125)))
-    print('Security Review: {}'.format(str(issue.fields.customfield_11139.value)))
-    print('Projected Usage: {}'.format(str(issue.fields.customfield_11120)))
-    print('Resolved: {}'.format(str(issue.fields.resolutiondate)))
-    try:
-      try:
-        createApplication(name = issue.fields.summary)
-        query = """
+#Check Jira for existing LeanIX Factsheets
+def preExisting():
+  for issue in jira.search_issues('project = "Vendor Service Request" AND created >= -1d AND issuetype = "New Feature" AND status not in ("CorpEng Review", "Cancelled", "Done")', maxResults=50):
+    query = """
           {
             allFactSheets(filter: {displayName: "%s"}) {
               totalCount
@@ -471,70 +556,258 @@ while master_time <= 135:
                   displayName
                   id
                 }
-              }
+                       }
             }
           }
         """ % (issue.fields.summary)
-        print ("Application in LeanIX has been created:")
-        response = call(query)
-        print (response['data'])
-        cmd = str(response)
-      except:
-        emailSend(master_time, e)
-        sys.exit()
+    response = call(query)
+    print (response['data'])
+    cmd = str(response)
+    try:
       if cmd.split("'")[13] == issue.fields.summary:
-        print ("split is working")
+        print ("Application Already exist within LeanIX")
         id2 = cmd.split("'")[17]
-        print (id2)
-        createBusiness(business_name = str(issue.fields.customfield_11119.value))
-        print()
-        relationsBusiness(id2, business_name = str(issue.fields.customfield_11119.value))
-        print()
-        createProvider(provider_name = str(issue.fields.customfield_11114))
-        print()
-        #relationsProvider(provider_name = str(issue.fields.customfield_11114), name = issue.fields.summary)
-        #cannot make relatioin between application and provider https://dev.leanix.net/docs/data-model
-        print()
-          while ug < 120:
-            try:
-              userGroup(group.split(", ")[ug]) 
-              print()
-              relationsUserGroup(id2, group.split(", ")[ug])
-              ug += 1
-            except IndexError as e:
-              break
-        else:
-          ug = 1
-          while ug < 120:
-            try:
-              userGroup(group = (str(issue.fields.customfield_11120).split("'")[ug])) 
-              print()
-              relationsUserGroup(id2, (str(issue.fields.customfield_11120).split("'")[ug]))
-              ug += 4
-            except IndexError as e:
-              break
-        print ()
-        addUser(id2, system_owner = str(issue.fields.customfield_11132.emailAddress), business_owner= str(issue.fields.customfield_11131.emailAddress))
-        print ()
-        createTag(id2, tag_license = str(issue.fields.customfield_11124.value), tag_dc = str(issue.fields.customfield_11133.value), tag_software = str(issue.fields.customfield_11123.value), tag_crit = str(issue.fields.customfield_11128.value), tag_auth = str(issue.fields.customfield_11136.value), tag_sec = str(issue.fields.customfield_11139.value))
-        print ()
-        lifeCycle(id2, start_date = str(issue.fields.resolutiondate))
-        print ()
-    except KeyboardInterrupt as e:
-      emailSend(master_time, e)
-      sys.exit()
-    except requests.exceptions.ConnectionError as e:
-      emailSend(master_time, e)
-      sys.exit()
+        comment = jira.add_comment(issue.key, """Application already exist within LeanIX, closing out ticket as cancelled.\n https://dropbox.leanix.net/dropboxSandbox/factsheet/Application/"""+ id2)
+        jira.transition_issue(issue, '81')
+      else:
+        print(issue.key,)
+        print("Application has not been requested before")
+    except IndexError:
+      print(issue.key,)
+      print("Application has not been requested before")
+
+def changeRequest():
+  for issue in jira.search_issues('project = "Vendor Service Request" AND created >= -1d AND issuetype = Support AND status not in ("CorpEng Review", "Cancelled", "Done")', maxResults=50):
+    query = """
+      allFactSheets(filter: {displayName: "%s"}) {
+              totalCount
+        edges {
+          node {
+            displayName
+            tags{
+              name
+              tagGroup {
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+    """ % (issue.fields.summary)
+    response = call(query)
+    print (response['data'])
+    cmd = str(response)
+    print(cmd)
+    try:
+      if cmd.split("'")[13] == issue.fields.summary:
+        print ("Application Already exist within LeanIX")
+        id2 = cmd.split("'")[17]
+        comment = jira.add_comment(issue.key, """Application already exist within LeanIX, closing out ticket as cancelled.\n https://dropbox.leanix.net/dropboxSandbox/factsheet/Application/"""+ id2)
+        summary = issue.fields.summary
+        new_issue = issue.key
+        duplicateTicket(summary, new_issue)
+        jira.transition_issue(issue, '141')
+      else:
+        print(new_issue)
+        print("Application has not been requested before")
+    except IndexError:
+      print(new_issue)
+      print("Application has not been requested before")
+
+print ("Start : " + time.ctime())
+master_time = 0
+while master_time <= 135:
+  with open('secrets/code.txt') as f:
+    lines = f.readlines()
+    password = str(lines).split("'")[3]
+    api_token = str(lines).split("'")[5]
+    useremail = str(lines).split("'")[7]
+    jira = jira = JIRA(auth=(useremail, password), options={'server': str(lines).split("'")[9]})
+    #LeanIX API 
+    auth_url = 'https://dropbox.leanix.net/services/mtm/v1/oauth2/token' 
+    request_url = 'https://dropbox.leanix.net/services/pathfinder/v1/graphql'
+
+    #API handler
+    response = requests.post(auth_url, auth=('apitoken', api_token),
+                             data={'grant_type': 'client_credentials'})
+    response.raise_for_status() 
+    access_token = response.json()['access_token']
+    auth_header = 'Bearer ' + access_token
+    header = {'Authorization': auth_header}
+    try:
+      changeRequest()
+      print()
+      preExisting()
+      print()
     except:
-      e = "Application crashed"
-      emailSend(master_time, e)
-      sys.exit()
-  try:
-    time.sleep(5)#(86400) = One full day
+      print("No Tickets have been made yet")
+    time.sleep(3200)
     master_time += 1
-  except KeyboardInterrupt as e:
-    emailSend(master_time, e)
-    sys.exit()
-emailSend(master_time, e)
-print("Python script needs to be restarted, email with failue sent")
+os.execl(sys.executable, sys.executable, *sys.argv)
+emailSend(Key, useremail, master_time, lines)
+     for issue in jira.search_issues('project = "Vendor Service Request" AND status = Done AND resolved is not EMPTY AND issuetype = "New Feature" AND resolved >= -1d', maxResults=50):
+       print(len(issue.fields.summary) )
+       if len(issue.fields.summary) == 0:
+         print("No Tickets have been made yet.")
+         time.sleep(3200)
+         os.execl(sys.executable, sys.executable, *sys.argv)
+       else:
+         print("There are tickets in Jira")
+         try:
+           Key = issue.key
+           Summary = issue.fields.summary
+           business_parent = str(issue.fields.customfield_11065.value)
+           business_child = str(issue.fields.customfield_11065.child.value)
+           Software_Type = str(issue.fields.customfield_11066.value)
+           business_other = str(issue.fields.customfield_11100.value)
+           Software_Vendor = str(issue.fields.customfield_11060)
+           Business_Owner = str(issue.fields.customfield_11074.emailAddress)
+           System_Owner = str(issue.fields.customfield_11075.emailAddress)
+           Authentication = str(issue.fields.customfield_11079.value)
+           Criticality = str(issue.fields.customfield_11071.value)
+           Data_Classification = str(issue.fields.customfield_11076.value)
+           Data_Types = str(issue.fields.customfield_11060)
+           License_Type = str(issue.fields.customfield_11067.value)
+           Vendor_Contact = str(issue.fields.customfield_11060)
+           Security_Review = str(issue.fields.customfield_11097.value)
+           Projected_Usage = str(issue.fields.customfield_11059)
+           Resolved = str(issue.fields.resolutiondate)
+         except AttributeError:
+           emailSend(Key, useremail, master_time, lines)
+           sys.exit()
+           try:
+             createApplication(name = str(Summary))
+             time.sleep(15)
+             query = """
+               {
+                 allFactSheets(filter: {displayName: "%s"}) {
+                   totalCount
+                   edges {
+                     node {
+                       displayName
+                       id
+                     }
+                   }
+                 }
+               }
+             """ % (Summary)
+             print ("Application in LeanIX as not been listed.")
+             response = call(query)
+             print (response['data'])
+             cmd = str(response)
+           except:
+             emailSend(Key, useremail, master_time, lines)
+             sys.exit()
+           if cmd.split("'")[13].lower() == str(Summary).lower():
+             print ("split is working")
+             id2 = cmd.split("'")[17]
+             print (id2)
+             if business_parent == "Other":
+               createBusiness2(business_other)
+               print()
+               relationsBusiness2(id2, business_other)
+               print()
+             else:
+               createBusiness(business_parent, business_child)
+               print()
+               childParent(business_parent, business_child)
+               print()
+               query = """
+                 {
+                   allFactSheets(filter: {displayName: "%s / %s"}) {
+                     totalCount
+                     edges {
+                       node {
+                         displayName
+                         id
+                       }
+                     }
+                   }
+                 }
+               """ % (business_parent, business_child)
+               response = call(query)
+               print (response['data'])
+               agh = str(response)
+               mercy = agh.split("'")[17]
+               relationsBusiness(id2, mercy)
+             print()
+             createProvider(provider_name = str(Software_Vendor))
+             print()
+             #relationsProvider(provider_name = str(issue.fields.customfield_11114), name = issue.fields.summary)
+             #cannot make relatioin between application and provider https://dev.leanix.net/docs/data-model
+             print()
+             if str(Projected_Usage).split("'")[1] == "All Departments":
+               group = "Product, Design, Growth, ITS, Central Services, Co-Founders, Application Eng, Cloud Eng, HelloSign, Black Ops, Comms, Finance, Legal, Office Services, People, Tuck Shop, BD, BSO, CX, Marketing, Sales & Channel"
+               ug = 0
+               while ug < 120:
+                 try:
+                   userGroup(group.split(", ")[ug]) 
+                   print()
+                   relationsUserGroup(id2, group.split(", ")[ug])
+                   ug += 1
+                 except IndexError:
+                   break
+             elif is not str(Projected_Usage).split("'")[1]:
+               break
+             else:
+               ug = 1
+               while ug < 120:
+                 try:
+                   userGroup(group = (str(Projected_Usage).split("'")[ug])) 
+                   print()
+                   relationsUserGroup(id2, (str(Projected_Usage).split("'")[ug]))
+                   ug += 4
+                 except IndexError:
+                   break
+             print ()
+             addUser(id2, system_owner = str(System_Owner), business_owner= str(Business_Owner))
+             print ()
+             if str(Data_Classification) == "L1 - User data, Dropbox secrets, PII":
+               Data_Classification = "Level-1"
+             elif str(Data_Classification) == "L2 - Sensitive company data":
+               Data_Classification = "Level-2"
+             elif str(Data_Classification) == "L3 - Leveraged data":
+              Data_Classification = "Level-3"
+             else:
+              Data_Classification = "None of the above"
+             if str(Authentication) == "Enterprise single sign on":
+               Authentication = "SSO Capable"
+             elif str() == "Standalone username/password":
+               Authentication = "SSO Incapable"
+             else:
+               Authentication = "No Auth"
+             if str(Software_Type) == "Server software hosted on-prem":
+               Software_Type = "On-Prem"
+             elif str(Software_Type) == "Cloud software":
+               Software_Type = "SaaS"
+             elif str(Software_Type) == "Desktop software or browser plugin":
+              Software_Type = "Standalone Client"
+             elif str(Software_Type) == "Hybrid cloud/ on-prem solution":
+              Software_Type = "Hybrid" 
+             else:
+              Software_Type = "no longer used"
+             createTag(id2, tag_license = str(License_Type), tag_dc = str(Data_Classification), tag_software = str(Software_Type), tag_crit = str(Criticality), tag_auth = str(Authentication), tag_sec = str(Security_Review))
+             print ()
+             lifeCycle(id2, start_date = str(Resolved))
+             print()
+             time.sleep(30)
+             print ("End : " + time.ctime())
+         except KeyboardInterrupt:
+           emailSend(Key, useremail, master_time, lines)
+           sys.exit()
+         except requests.exceptions.ConnectionError:
+           emailSend(Key, useremail, master_time, lines)
+           sys.exit()
+         except:
+           emailSend(Key, useremail, master_time, lines)
+           sys.exit()
+     try:
+       time.sleep(3200)
+       master_time += 1
+     except KeyboardInterrupt:
+       Key = "Script was stopped by a User: mbutilla"
+       emailSend(Key, useremail, master_time, lines)
+       sys.exit()
+ os.execl(sys.executable, sys.executable, *sys.argv)
+ emailSend(Key, useremail, master_time, lines)
